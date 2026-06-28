@@ -1,0 +1,19 @@
+[project]
+name = "galgame-notes-assistant"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "flask>=3.0",
+  "flask-socketio>=5.3",
+  "openai>=1.30",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
