@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Project: 记忆库可能含个人游玩记录，默认不入库（按需取消注释）
+# memory/
+
+# 凭据 / 本地配置
+.env
+*.local.json
+secrets.json
