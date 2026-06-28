@@ -20,6 +20,23 @@ function clearEmpty(el) {
   if (e) e.remove();
 }
 
+// 日/夜间主题切换
+const themeToggle = document.getElementById("themeToggle");
+function applyTheme(t) {
+  if (t === "day") document.documentElement.setAttribute("data-theme", "day");
+  else document.documentElement.removeAttribute("data-theme");
+  if (themeToggle) themeToggle.textContent = t === "day" ? "夜间" : "日间";
+}
+applyTheme(document.documentElement.getAttribute("data-theme") === "day" ? "day" : "night");
+if (themeToggle) {
+  themeToggle.addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme") === "day" ? "day" : "night";
+    const next = cur === "day" ? "night" : "day";
+    applyTheme(next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+  });
+}
+
 // 把 "【主角】你好" 拆成说话人 + 正文
 function parseSpeaker(text) {
   const m = /^【([^】]+)】(.*)/.exec(text);

@@ -9,9 +9,25 @@
   --accent: #C9842C;
   --accent-hi: #D89438;
   --insight: #D4A84A;
+  --bg-glow: #1C1710;
 
   --serif: 'Noto Serif SC', 'Source Han Serif SC', 'STSong', serif;
   --sans: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+}
+
+/* ---- 日间主题：纸与墨 ---- */
+[data-theme="day"] {
+  --bg: #F0E6D2;
+  --bg-2: #E6D9BE;
+  --border: #D9CBB0;
+  --ink: #2A2017;
+  --ink-2: #4A3B2A;
+  --muted: #7A6B52;
+  --muted-2: #A89878;
+  --accent: #A8651E;
+  --accent-hi: #8F5414;
+  --insight: #8A6510;
+  --bg-glow: #F4ECDA;
 }
 
 * { box-sizing: border-box; }
@@ -19,12 +35,13 @@ html, body { height: 100%; }
 body {
   margin: 0;
   background: var(--bg);
-  background-image: radial-gradient(125% 95% at 50% 0%, #1C1710 0%, var(--bg) 58%);
+  background-image: radial-gradient(125% 95% at 50% 0%, var(--bg-glow) 0%, var(--bg) 58%);
   color: var(--ink);
   font-family: var(--serif);
   font-size: 15px;
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 240ms ease, color 240ms ease;
 }
 
 /* ---- Masthead ---- */
@@ -47,6 +64,10 @@ body {
   font-size: 12px;
   letter-spacing: 0.1em;
   color: var(--muted);
+}
+.theme-toggle {
+  margin-left: auto;
+  align-self: center;
 }
 
 /* ---- Desk layout ---- */
