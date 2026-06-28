@@ -1,3 +1,4 @@
+from pathlib import Path
 from flask import Flask, request, jsonify, render_template
 from flask_socketio import SocketIO
 
@@ -10,6 +11,8 @@ from app.chat import ChatEngine
 
 app = Flask(__name__, template_folder="../web/templates", static_folder="../web/static")
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 llm = LLMClient(CONFIG.llm_base_url, CONFIG.llm_api_key)
 stores: dict[str, GameStore] = {}
@@ -64,8 +67,11 @@ def post_marker():
 @app.post("/api/replay")
 def post_replay():
     d = request.json
+    p = Path(d["path"])
+    if not p.is_absolute():
+        p = PROJECT_ROOT / p
     inj = FileInjector(
-        d["path"], d.get("game_id", DEFAULT_GAME),
+        str(p), d.get("game_id", DEFAULT_GAME),
         source="replay", interval=float(d.get("interval", 1.0)),
         on_event=ingest,
     )

@@ -2,40 +2,55 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>Galgame Notes Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>伴读 · Galgame Notes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
-  <div class="layout">
-    <section class="panel">
-      <h2>实时台词</h2>
-      <div id="lines" class="lines"></div>
-      <div class="row">
-        <input id="lineText" placeholder="手动注入一句台词（回车提交）">
-        <button id="sendLine">注入</button>
+  <header class="masthead">
+    <div class="masthead-title">伴读</div>
+    <div class="masthead-sub">一边玩，一边记</div>
+  </header>
+
+  <main class="desk">
+    <section class="col col-stream">
+      <div class="col-eyebrow">实时台词</div>
+      <div id="lines" class="stream"></div>
+      <div class="composer">
+        <input id="lineText" class="field" placeholder="手动注入一句台词，回车提交">
+        <button id="sendLine" class="btn">注入</button>
       </div>
-      <div class="row">
-        <input id="markerLabel" placeholder="路标名，如 B 线开始">
-        <button id="sendMarker">打路标</button>
+      <div class="composer">
+        <input id="markerLabel" class="field" placeholder="路标，如：进入小雪线">
+        <button id="sendMarker" class="btn btn-ghost">打路标</button>
       </div>
-      <div class="row">
-        <button id="replay">回放 sample_lines.txt</button>
+      <div class="composer">
+        <button id="replay" class="btn btn-ghost btn-block">回放示例台词</button>
       </div>
     </section>
-    <section class="panel">
-      <h2>笔记 <button id="refreshNotes" class="small">刷新</button></h2>
-      <pre id="notes" class="notes"></pre>
+
+    <section class="col col-notes">
+      <div class="col-eyebrow-row">
+        <span class="col-eyebrow">笔记</span>
+        <button id="refreshNotes" class="btn btn-ghost btn-sm">刷新</button>
+      </div>
+      <article id="notes" class="notes"></article>
     </section>
-    <section class="panel">
-      <h2>讨论剧情</h2>
+
+    <section class="col col-chat">
+      <div class="col-eyebrow">讨论剧情</div>
       <div id="chat" class="chat"></div>
-      <div class="row">
-        <input id="question" placeholder="问点剧情（回车提交）">
-        <button id="ask">提问</button>
+      <div class="composer">
+        <input id="question" class="field" placeholder="问点剧情，回车提交">
+        <button id="ask" class="btn">提问</button>
       </div>
     </section>
-  </div>
+  </main>
+
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
