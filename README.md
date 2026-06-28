@@ -55,6 +55,12 @@ copy .env.example .env
 
 记忆库落在 `data/<game_id>/`（`transcript.md` 原始台词、`notes.md` AI 笔记、`characters.md`、`meta.json`）。`data/` 和 `.env` 不入库。
 
+## 真实抓取（Textractor，v2）
+
+接上真实 galgame：装 [Textractor](https://github.com/Artikash/Textractor) + [textractor_websocket](https://github.com/kuroahna/textractor_websocket) 扩展，启动本应用后状态点变琥珀即连上。游戏里每出一句新台词，左栏实时出现对话卡，攒够 N 条自动整理成笔记。完整安装与选线程指引见 [docs/textractor-setup.md](docs/textractor-setup.md)。
+
+无 Textractor 时可用 mock 服务测：`.venv\Scripts\python.exe dev\mock_textractor.py samples\sample_lines.txt 0.5`（在 :6677 模仿 Textractor）。
+
 测试：`.venv\Scripts\python.exe -m pytest`
 
 设计文档见 [docs/design.md](docs/design.md)，实现计划见 [docs/plans/](docs/plans/)。
