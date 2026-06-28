@@ -90,4 +90,5 @@ def get_notes():
     )
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True, port=5000)
+    # allow_unsafe_werkzeug: 新版 flask-socketio 默认禁止 Werkzeug dev server，开发环境显式开启
+    socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)
