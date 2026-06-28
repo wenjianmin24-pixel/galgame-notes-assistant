@@ -127,10 +127,15 @@ def textractor_status():
                    game_id=active_game)
 
 if __name__ == "__main__":
-    try:
-        bridge.start()
-        print("Textractor bridge started (ws://localhost:6677)")
-    except RuntimeError as e:
-        print(f"Textractor bridge 未启动: {e}")
+    import os
+    DEBUG = True
+    # debug reloader 下父进程会重跑 __main__；只在真正服务的子进程（WERKZEUG_RUN_MAIN=true）
+    # 起 bridge，避免双进程重复连 Textractor / 重复落盘 / 重复调 LLM。
+    if (not DEBUG) or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        try:
+            bridge.start()
+            print("Textractor bridge started (ws://localhost:6677)", flush=True)
+        except RuntimeError as e:
+            print(f"Textractor bridge 未启动: {e}", flush=True)
     # allow_unsafe_werkzeug: 新版 flask-socketio 默认禁止 Werkzeug dev server，开发环境显式开启
-    socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)
+    socketio.run(app, debug=DEBUG, port=5000, allow_unsafe_werkzeug=True)

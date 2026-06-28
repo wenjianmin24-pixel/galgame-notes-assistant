@@ -52,9 +52,10 @@ class TextractorBridge:
                     on_error=lambda ws, e: setattr(self, "connected", False),
                     on_close=lambda ws, *a: setattr(self, "connected", False),
                 )
-                ws.run_forever(ping_interval=10, ping_timeout=10)
-            except Exception:
-                pass
+                ws.run_forever(ping_interval=30, ping_timeout=8)
+            except Exception as e:
+                # 打印异常避免静默吞掉（便于排查连接问题）
+                print(f"[textractor] run_forever exited: {type(e).__name__}: {e}", flush=True)
             self.connected = False
             # 重连间隔 ~5s（Textractor 可能还没开）
             for _ in range(20):
