@@ -8,6 +8,8 @@ from app.memory import GameStore
 from app.llm_client import LLMClient
 from app.organizer import Organizer
 from app.chat import ChatEngine
+from app.textractor import TextractorBridge
+from app.memory import slugify
 
 app = Flask(__name__, template_folder="../web/templates", static_folder="../web/static")
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -40,6 +42,21 @@ def ingest(ev: LineEvent):
     if org.should_trigger():
         org.organize()
         socketio.emit("notes", {"notes": store.read_notes()})
+
+active_game = "default"
+bridge = TextractorBridge(game_id=active_game, on_event=ingest)
+
+def set_active_game(name):
+    global active_game
+    active_game = slugify(name) if name else "default"
+    bridge.set_game(active_game)
+
+def emit_status():
+    socketio.emit("textractor_status", {
+        "connected": bridge.connected,
+        "running": bridge._thread is not None and bridge._thread.is_alive(),
+        "game_id": active_game,
+    })
 
 @app.get("/")
 def index():
@@ -95,6 +112,25 @@ def get_notes():
         transcript=store.read_transcript(),
     )
 
+@app.post("/api/game")
+def post_game():
+    global active_game
+    d = request.json
+    set_active_game(d.get("name", ""))
+    emit_status()
+    return jsonify(ok=True, game_id=active_game)
+
+@app.get("/api/textractor/status")
+def textractor_status():
+    return jsonify(connected=bridge.connected,
+                   running=bridge._thread is not None and bridge._thread.is_alive(),
+                   game_id=active_game)
+
 if __name__ == "__main__":
+    try:
+        bridge.start()
+        print("Textractor bridge started (ws://localhost:6677)")
+    except RuntimeError as e:
+        print(f"Textractor bridge 未启动: {e}")
     # allow_unsafe_werkzeug: 新版 flask-socketio 默认禁止 Werkzeug dev server，开发环境显式开启
     socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)
