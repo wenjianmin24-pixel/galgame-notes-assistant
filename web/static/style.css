@@ -256,3 +256,20 @@ body {
   .col { border-right: none; border-bottom: 1px solid var(--border); min-height: 320px; }
   body { font-size: 14px; }
 }
+
+/* ---- Game picker + Textractor status ---- */
+.game-picker { margin-left: auto; align-self: center; }
+.field-game { padding: 6px 10px; font-size: 12px; width: 150px; }
+.tx-status {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--sans); font-size: 11px; color: var(--muted);
+  letter-spacing: 0.06em; align-self: center;
+}
+.tx-status .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted-2); transition: background 200ms ease;
+}
+.tx-status.on .dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+@media (max-width: 960px) {
+  .game-picker, .tx-status { margin-left: 0; }
+}

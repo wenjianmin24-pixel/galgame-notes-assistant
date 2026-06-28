@@ -1,4 +1,17 @@
-const GAME_ID = "default";
+let GAME_ID = localStorage.getItem("gameName") || "default";
+const gameNameEl = document.getElementById("gameName");
+gameNameEl.value = GAME_ID;
+
+async function setGame(name) {
+  GAME_ID = (name || "default").trim() || "default";
+  localStorage.setItem("gameName", GAME_ID);
+  await fetch("/api/game", { method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ name: GAME_ID }) });
+}
+gameNameEl.addEventListener("change", () => setGame(gameNameEl.value));
+gameNameEl.addEventListener("keydown", (e) => { if (e.key === "Enter") gameNameEl.blur(); });
+setGame(GAME_ID);  // 启动时同步给服务端
+
 const socket = io();
 
 const linesEl = document.getElementById("lines");
@@ -167,5 +180,18 @@ document.getElementById("ask").onclick = async () => {
 document.getElementById("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") document.getElementById("ask").click();
 });
+
+const txStatusEl = document.getElementById("txStatus");
+async function pollTxStatus() {
+  try {
+    const d = await (await fetch("/api/textractor/status")).json();
+    txStatusEl.classList.toggle("on", !!d.connected);
+    txStatusEl.querySelector(".tx-label").textContent =
+      d.connected ? "Textractor 已连" : (d.running ? "Textractor 待连" : "Textractor 未启");
+  } catch (e) {}
+}
+pollTxStatus();
+setInterval(pollTxStatus, 3000);
+socket.on("textractor_status", () => pollTxStatus());
 
 refreshNotes();
