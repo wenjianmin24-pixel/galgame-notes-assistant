@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "websockets>=12.0"]
 
 [tool.setuptools]
 packages = ["app"]
