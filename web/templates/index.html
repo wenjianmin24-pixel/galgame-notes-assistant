@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Galgame Notes Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <section class="panel">
+      <h2>实时台词</h2>
+      <div id="lines" class="lines"></div>
+      <div class="row">
+        <input id="lineText" placeholder="手动注入一句台词（回车提交）">
+        <button id="sendLine">注入</button>
+      </div>
+      <div class="row">
+        <input id="markerLabel" placeholder="路标名，如 B 线开始">
+        <button id="sendMarker">打路标</button>
+      </div>
+      <div class="row">
+        <button id="replay">回放 sample_lines.txt</button>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>笔记 <button id="refreshNotes" class="small">刷新</button></h2>
+      <pre id="notes" class="notes"></pre>
+    </section>
+    <section class="panel">
+      <h2>讨论剧情</h2>
+      <div id="chat" class="chat"></div>
+      <div class="row">
+        <input id="question" placeholder="问点剧情（回车提交）">
+        <button id="ask">提问</button>
+      </div>
+    </section>
+  </div>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
