@@ -23,6 +23,10 @@
     <div id="txStatus" class="tx-status" title="Textractor 连接状态">
       <span class="dot"></span><span class="tx-label">Textractor</span>
     </div>
+    <div id="ocrStatus" class="tx-status" title="OCR 状态" style="display:none">
+      <span class="dot"></span><span class="ocr-label">OCR</span>
+    </div>
+    <button id="settingsBtn" class="btn btn-ghost btn-sm" type="button" title="设置">⚙</button>
     <button id="themeToggle" class="btn btn-ghost btn-sm theme-toggle" type="button">日间</button>
   </header>
 
@@ -46,7 +50,12 @@
     <section class="col col-notes">
       <div class="col-eyebrow-row">
         <span class="col-eyebrow">笔记</span>
-        <button id="refreshNotes" class="btn btn-ghost btn-sm">刷新</button>
+        <div>
+          <button id="editNotes" class="btn btn-ghost btn-sm">编辑</button>
+          <button id="saveNotes" class="btn btn-sm" style="display:none">保存</button>
+          <button id="cancelEdit" class="btn btn-ghost btn-sm" style="display:none">取消</button>
+          <button id="refreshNotes" class="btn btn-ghost btn-sm">刷新</button>
+        </div>
       </div>
       <article id="notes" class="notes"></article>
     </section>
@@ -60,6 +69,103 @@
       </div>
     </section>
   </main>
+
+  <!-- 设置面板 -->
+  <div id="settingsOverlay" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <span class="modal-title">设置</span>
+        <button id="closeSettings" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-tabs">
+          <button class="stab active" data-tab="tab-model">模型配置</button>
+          <button class="stab" data-tab="tab-capture">抓取通道</button>
+          <button class="stab" data-tab="tab-ocr">OCR 设置</button>
+        </div>
+
+        <div id="tab-model" class="stab-panel">
+          <label class="sfield">全局端点（默认，各角色留空则用此）
+            <input id="set_llm_base_url" class="field" placeholder="https://api.deepseek.com">
+          </label>
+          <label class="sfield">全局 API Key（默认）
+            <input id="set_llm_api_key" class="field" type="password" placeholder="sk-...">
+          </label>
+          <div class="muted" style="margin:10px 0 6px">下方每个角色可单独覆盖端点/Key/模型，留空即用全局。</div>
+          <div id="modelBlocks"></div>
+        </div>
+
+        <div id="tab-capture" class="stab-panel" style="display:none">
+          <label class="sfield">抓取通道
+            <select id="set_capture_mode" class="field">
+              <option value="textractor">Textractor（内存钩子）</option>
+              <option value="ocr">OCR（屏幕识别）</option>
+            </select>
+          </label>
+          <p class="muted">切换后自动启停对应通道，无需重启。OCR 的本地/AI 视觉在"OCR 设置"标签里选。</p>
+        </div>
+
+        <div id="tab-ocr" class="stab-panel" style="display:none">
+          <label class="sfield">OCR 方式
+            <select id="set_ocr_mode" class="field">
+              <option value="local">本地 OCR（Windows.Media.Ocr，快、免费、离线）</option>
+              <option value="ai_vision">AI 视觉 OCR（视觉大模型，更准、需配模型）</option>
+            </select>
+          </label>
+          <div id="ocrVisionBlock" style="display:none; margin-bottom:10px"></div>
+          <label class="sfield">目标窗口（锁定到游戏窗口，移动窗口仍能跟着抓）
+            <div class="row-region">
+              <select id="set_ocr_window" class="field region-preview">
+                <option value="">不绑定（用屏幕绝对坐标）</option>
+              </select>
+              <button id="refreshWindowsBtn" class="btn btn-ghost btn-sm" type="button">刷新</button>
+            </div>
+          </label>
+          <label class="sfield">截取区域
+            <div class="row-region">
+              <span id="regionPreview" class="region-preview muted">未设置</span>
+              <button id="pickRegionBtn" class="btn btn-ghost btn-sm" type="button">截图上框选</button>
+            </div>
+          </label>
+          <label class="sfield">截取间隔（秒）
+            <input id="set_ocr_interval" class="field" type="number" step="0.1" min="0.3" value="1.0">
+          </label>
+          <div class="sfield">
+            <div class="muted">OCR 实时状态</div>
+            <div id="ocrLiveStatus" class="ocr-live">未启用</div>
+            <div id="ocrLastError" class="ocr-error" style="display:none"></div>
+            <div id="ocrLastText" class="ocr-last muted"></div>
+            <div style="margin-top:8px">
+              <button id="restartOcrBtn" class="btn btn-ghost btn-sm" type="button">重启 OCR</button>
+            </div>
+          </div>
+          <p class="muted">先选目标窗口（或刷新列表），再点"框选区域"在游戏画面上拖出台词框。区域会自动转为相对该窗口的偏移，窗口移动也跟得住。</p>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button id="saveSettings" class="btn">保存设置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 截图框选弹窗 -->
+  <div id="snapshotOverlay" class="modal-overlay" style="display:none">
+    <div class="modal" style="width:90vw; max-width:1100px">
+      <div class="modal-head">
+        <span class="modal-title">在截图上框选台词区域</span>
+        <button id="closeSnapshot" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <div class="modal-body" style="text-align:center">
+        <p class="muted" id="snapshotHint" style="text-align:left">载入中…在图上拖动鼠标框选台词框，无需游戏窗口在前台。</p>
+        <canvas id="snapshotCanvas" style="max-width:100%; border:1px solid var(--border); cursor:crosshair; display:none"></canvas>
+      </div>
+      <div class="modal-foot">
+        <span id="snapshotSelInfo" class="muted" style="float:left"></span>
+        <button id="reSnapBtn" class="btn btn-ghost btn-sm" type="button">重新截取</button>
+        <button id="confirmRegionBtn" class="btn btn-sm" type="button" disabled>确认区域</button>
+      </div>
+    </div>
+  </div>
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from time import time
+import re
 
 @dataclass
 class LineEvent:
@@ -11,21 +12,31 @@ class LineEvent:
     ts: float = field(default_factory=time)
 
 class LineDeduper:
-    """同一通道同一文本只推一次。"""
-    def __init__(self):
-        self._last: dict[str, str] = {}
+    """同一通道同一文本只推一次。归一化后比对，并保留最近若干条历史，
+    防 OCR 抖动（A→B→A、空格/换行差异导致的重复）。"""
+    def __init__(self, history=50):
+        self._hist: dict[str, list[str]] = {}
+        self._history = history
 
     def _key(self, ev: LineEvent) -> str:
         return f"{ev.game_id}|{ev.source}|{ev.thread_id or ''}"
 
+    @staticmethod
+    def _norm(text: str) -> str:
+        # 去掉所有空白（含全角空格、换行），OCR 抖动主要就是这些差异
+        return re.sub(r"[\s　]+", "", text)
+
     def is_new(self, ev: LineEvent) -> bool:
-        text = ev.text.strip()
+        text = self._norm(ev.text)
         if not text:
             return False
         key = self._key(ev)
-        if self._last.get(key) == text:
+        recent = self._hist.setdefault(key, [])
+        if text in recent:
             return False
-        self._last[key] = text
+        recent.append(text)
+        if len(recent) > self._history:
+            del recent[: len(recent) - self._history]
         return True
 
 

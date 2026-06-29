@@ -24,3 +24,7 @@ Thumbs.db
 .env
 *.local.json
 secrets.json
+settings.json
+
+# 运行时数据：transcript / notes / characters / settings（含真实 key 与游玩记录）
+data/

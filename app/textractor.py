@@ -2,6 +2,7 @@ from threading import Thread, Event
 from time import sleep
 
 from app.capture import LineEvent
+from app.parser import parse_speaker, recover_encoding
 
 try:
     import websocket  # websocket-client
@@ -10,8 +11,10 @@ except ImportError:
 
 
 def make_event(text, game_id, ts=None):
-    """把 Textractor 推来的纯文本包成 LineEvent。纯函数，便于测试。"""
-    kw = {"game_id": game_id, "source": "textractor", "text": text}
+    """把 Textractor 推来的纯文本包成 LineEvent。自动修复编码 → 提取说话人。"""
+    text = recover_encoding(text)
+    speaker, body = parse_speaker(text)
+    kw = {"game_id": game_id, "source": "textractor", "text": body, "speaker": speaker}
     if ts is not None:
         kw["ts"] = ts
     return LineEvent(**kw)
