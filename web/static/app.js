@@ -713,7 +713,7 @@ async function pollOcrStatus() {
     if (ocrLiveEl) {
       if (d.running) {
         const reg = d.region ? `${d.region.x},${d.region.y} ${d.region.w}×${d.region.h}` : "无区域";
-        const mode = d.ocr_mode === "ai_vision" ? "AI视觉" : d.ocr_mode === "rapid" ? "RapidOCR" : d.ocr_mode === "onnx" ? "ONNX" : "本地";
+        const mode = d.ocr_mode === "ai_vision" ? "AI视觉" : d.ocr_mode === "rapid" ? "RapidOCR" : "本地";
         const lang = d.lang_tag ? ` · ${d.lang_tag}` : "";
         const win = d.window_bound ? ` · 绑定:${d.window}` : " · 屏幕坐标";
         ocrLiveEl.textContent = `运行中[${mode}] · 已识别 ${d.frame_count} 帧${lang}${win} · 区域 ${reg}`;

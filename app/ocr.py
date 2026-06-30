@@ -120,9 +120,6 @@ class OCRCapture:
         elif self.ocr_mode == "rapid":
             from app.ocr_rapid import RapidOCREngine
             self._engine = RapidOCREngine()
-        elif self.ocr_mode == "onnx":
-            from app.ocr_onnx import ONNXOCR
-            self._engine = ONNXOCR()
         else:
             from app.ocr_winsdk import WindowsOCR
             self._engine = WindowsOCR(lang=self.lang)
