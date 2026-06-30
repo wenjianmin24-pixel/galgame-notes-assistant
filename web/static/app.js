@@ -1,16 +1,61 @@
 let GAME_ID = localStorage.getItem("gameName") || "default";
-const gameNameEl = document.getElementById("gameName");
-gameNameEl.value = GAME_ID;
+const gameSelect = document.getElementById("gameSelect");
+const newGameBtn = document.getElementById("newGameBtn");
 
 async function setGame(name) {
   GAME_ID = (name || "default").trim() || "default";
   localStorage.setItem("gameName", GAME_ID);
   await fetch("/api/game", { method: "POST", headers: {"Content-Type":"application/json"},
     body: JSON.stringify({ name: GAME_ID }) });
+  // 刷新笔记、台词（切换游戏）
+  await refreshNotes();
+  const linesEl = document.getElementById("lines");
+  linesEl.innerHTML = `<div class="empty">${EMPTY.lines}</div>`;
+  // 重新加载游戏专属设置到缓存
+  try {
+    const r = await fetch("/api/settings");
+    _settingsCache = await r.json();
+  } catch (e) {}
 }
-gameNameEl.addEventListener("change", () => setGame(gameNameEl.value));
-gameNameEl.addEventListener("keydown", (e) => { if (e.key === "Enter") gameNameEl.blur(); });
-setGame(GAME_ID);  // 启动时同步给服务端
+
+async function loadGameList() {
+  try {
+    const d = await (await fetch("/api/games")).json();
+    const games = d.games || [];
+    const sel = gameSelect;
+    sel.innerHTML = "";
+    if (games.length === 0) {
+      sel.innerHTML = '<option value="">（尚无游戏）</option>';
+    } else {
+      games.forEach(g => {
+        const opt = document.createElement("option");
+        opt.value = g.game_id;
+        opt.textContent = `${g.game_id} · ${g.notes_size}字笔记`;
+        if (g.is_active) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+    if (!games.some(g => g.is_active) && games.length > 0) {
+      // 当前活跃游戏不在列表首项？选中第一个
+      sel.value = games[0].game_id;
+      await setGame(sel.value);
+    }
+    return games;
+  } catch (e) { console.error(e); }
+}
+
+gameSelect.addEventListener("change", async () => {
+  if (gameSelect.value && gameSelect.value !== GAME_ID) {
+    await setGame(gameSelect.value);
+  }
+});
+
+newGameBtn.addEventListener("click", async () => {
+  const name = prompt("输入新游戏名称（支持中文）：");
+  if (!name || !name.trim()) return;
+  await setGame(name.trim());
+  await loadGameList();
+});
 
 const socket = io();
 
@@ -279,7 +324,15 @@ pollTxStatus();
 setInterval(pollTxStatus, 3000);
 socket.on("textractor_status", () => pollTxStatus());
 
-refreshNotes();
+// 启动：同步游戏 → 加载列表 → 刷新笔记
+(async () => {
+  await setGame(GAME_ID);
+  const games = await loadGameList();
+  if (games && games.length === 0) {
+    // 新游戏没有 meta，手动刷新一次
+    await refreshNotes();
+  }
+})();
 
 // ---- 设置面板 ----
 const settingsOverlay = document.getElementById("settingsOverlay");

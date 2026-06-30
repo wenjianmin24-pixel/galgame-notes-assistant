@@ -73,6 +73,13 @@ cd C:\Users\温建民\projects\galgame-notes-assistant
 - git 凭据已存进用户主目录的 git credential store，`git push`/`git fetch` 无需再输 token。
 - **不要**把 token 写进项目文件或 .git/config。凭据从 mcp.json 或 credential store 取。
 
+## v3 多游戏管理
+
+- 游戏按 `data/{game_id}/` 独立隔离：`transcript.md` / `notes.md` / `characters.md` / `meta.json`。
+- OCR 配置按游戏分层：`meta.json` 存游戏专属（`ocr_region` / `ocr_window` / `ocr_mode` / `ocr_lang` / `ocr_interval`），未配则回退全局 `data/settings.json`。
+- 前端顶部下拉选择游戏（`/api/games` 列出全部 + 统计），点 ➕ 新建游戏。切换时停旧 OCR、起新 OCR（加载新游戏的专属设置）、刷新笔记/台词。
+- `PUT /api/settings`：`ocr_*` 字段写入游戏 `meta.json`，其余字段写入全局 `settings.json`。
+
 ## 待迭代（v4）
 
 - ~~Textractor WebSocket 通道~~ ✅ v2

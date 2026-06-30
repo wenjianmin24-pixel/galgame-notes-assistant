@@ -49,10 +49,12 @@ class OCRCapture:
         with self._region_lock:
             self._region = dict(region)
         self._last_hash = None
+        self._last_pixels = None
 
     def set_window(self, window_title: str | None):
         self.window_title = (window_title or "").strip() or None
-        self._last_hash = None  # 换窗口后重置，让新内容立刻被识别
+        self._last_hash = None
+        self._last_pixels = None
 
     def get_region(self) -> dict:
         with self._region_lock:
@@ -115,6 +117,9 @@ class OCRCapture:
         if self.ocr_mode == "ai_vision":
             from app.ocr_ai import AIVisionOCR
             self._engine = AIVisionOCR()
+        elif self.ocr_mode == "onnx":
+            from app.ocr_onnx import ONNXOCR
+            self._engine = ONNXOCR()
         else:
             from app.ocr_winsdk import WindowsOCR
             self._engine = WindowsOCR(lang=self.lang)
@@ -125,6 +130,9 @@ class OCRCapture:
         if self.running:
             return
         self._stop.clear()
+        self._last_pixels = None
+        self._pending_frame = None   # 画面变化后等稳定再 OCR 的待处理帧
+        self._stable_count = 0        # 连续稳定帧计数
         self._thread = Thread(target=self._run, daemon=True)
         self._thread.start()
         self.running = True
@@ -132,6 +140,26 @@ class OCRCapture:
     def stop(self):
         self._stop.set()
         self.running = False
+
+    def _frame_changed(self, pil) -> bool:
+        """缩略图像素比对：>2% 像素显著变化才认为画面变了。"""
+        from PIL import Image
+        w = min(150, pil.width)
+        h = max(1, int(pil.height * w / pil.width))
+        thumb = pil.resize((w, h), Image.NEAREST)
+        px = thumb.tobytes()
+        if self._last_pixels is None or len(self._last_pixels) != len(px):
+            self._last_pixels = px
+            return True
+        prev = self._last_pixels
+        self._last_pixels = px
+        diff = 0
+        threshold = 40
+        for i in range(0, len(px) - 2, 3):
+            if (abs(px[i] - prev[i]) + abs(px[i + 1] - prev[i + 1]) +
+                    abs(px[i + 2] - prev[i + 2])) > threshold:
+                diff += 1
+        return diff / max(len(px) // 3, 1) > 0.02
 
     def _run(self):
         try:
@@ -144,13 +172,38 @@ class OCRCapture:
             self.running = False
             return
 
+        self._last_pixels: bytes | None = None  # 上一帧的缩略图像素（RGB bytes）
+
         print(f"[ocr] engine ready, using language {self.lang_tag}", flush=True)
 
         while not self._stop.is_set():
             try:
                 pil = self._capture_frame()
 
-                lines = self._engine.recognize(pil)
+                # 稳定性门控：画面变了就存起来，连续 stable_frames 帧不变才跑 OCR
+                # 防止类型机逐字推进时抓到半成品句子（LunaTranslator "analysis" 策略）
+                changed = self._frame_changed(pil)
+                if changed:
+                    self._stable_count = 0
+                    self._pending_frame = pil
+                    self.last_error = None
+                    sleep(self.interval)
+                    continue
+                # 画面没变：累积稳定计数
+                self._stable_count += 1
+                if self._stable_count < 3 or self._pending_frame is None:
+                    sleep(self.interval)
+                    continue
+                # 稳定够久了 → 对之前留存的那帧跑 OCR
+                ocr_pil = self._pending_frame
+                self._pending_frame = None
+                self._stable_count = 0
+
+                lines = self._engine.recognize(ocr_pil)
+                # 清洗 OCR 输出（去控制字符、ruby、空白折叠）
+                from app.parser import clean_ocr_text
+                lines = [clean_ocr_text(l) for l in lines]
+                lines = [l for l in lines if l]
                 if not lines:
                     self.last_error = None
                     sleep(self.interval)

@@ -164,3 +164,48 @@ def _strip_outer_quotes(s: str) -> str:
        (s.startswith('『') and s.endswith('』')):
         return s[1:-1]
     return s
+
+
+# ── OCR 文本清洗 ──────────────────────────────────────────
+
+# 控制字符(0x00-1f, 7f-9f) + 零宽字符(U+200b-f) + BOM(U+feff) + ruby 标记(U+fff9-b)
+_CONTROL_RE = re.compile('[\x00-\x1f\x7f-\x9f​-‏﻿￹-￻]')
+_SPACE_RE = re.compile(r'[\s　]+')  # 普通空白 + 全角空格
+
+
+def clean_ocr_text(text: str) -> str:
+    """清洗 OCR 输出：去控制字符 / ruby 标记 / 折叠空白。"""
+    if not text or not text.strip():
+        return ""
+    # 移除控制字符和 ruby 标记
+    t = _CONTROL_RE.sub('', text)
+    # 折叠连续空白为单个空格
+    t = _SPACE_RE.sub(' ', t)
+    return t.strip()
+
+
+# ── Levenshtein 相似度 ────────────────────────────────────
+
+def levenshtein_ratio(a: str, b: str) -> float:
+    """两字符串的 Levenshtein 相似度 (0.0~1.0)，纯 Python。"""
+    if not a and not b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    # 让 a 是短串、b 是长串（减少内存分配）
+    if len(a) > len(b):
+        a, b = b, a
+    na, nb = len(a), len(b)
+    # 长度保护：OCR 单行不太可能 >500 字符，超长的跳过模糊比对
+    if na > 500 or nb > 500:
+        return 0.5
+    prev = list(range(nb + 1))
+    curr = [0] * (nb + 1)
+    for i in range(1, na + 1):
+        curr[0] = i
+        ai = a[i - 1]
+        for j in range(1, nb + 1):
+            cost = 0 if ai == b[j - 1] else 1
+            curr[j] = min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost)
+        prev, curr = curr, prev
+    return 1.0 - prev[nb] / max(na, nb, 1)

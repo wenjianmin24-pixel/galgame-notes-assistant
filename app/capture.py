@@ -12,8 +12,7 @@ class LineEvent:
     ts: float = field(default_factory=time)
 
 class LineDeduper:
-    """同一通道同一文本只推一次。归一化后比对，并保留最近若干条历史，
-    防 OCR 抖动（A→B→A、空格/换行差异导致的重复）。"""
+    """归一化 + 精确哈希 + Levenshtein 模糊比对，防 OCR 抖动重复。"""
     def __init__(self, history=50):
         self._hist: dict[str, list[str]] = {}
         self._history = history
@@ -23,17 +22,27 @@ class LineDeduper:
 
     @staticmethod
     def _norm(text: str) -> str:
-        # 去掉所有空白（含全角空格、换行），OCR 抖动主要就是这些差异
         return re.sub(r"[\s　]+", "", text)
 
-    def is_new(self, ev: LineEvent) -> bool:
+    def is_new(self, ev: LineEvent, ratio_threshold: float = 0.82) -> bool:
         text = self._norm(ev.text)
         if not text:
             return False
         key = self._key(ev)
         recent = self._hist.setdefault(key, [])
+        # 精确匹配
         if text in recent:
             return False
+        # 模糊匹配：跟最近几条比对，相似度过高就跳过
+        from app.parser import levenshtein_ratio
+        check_window = min(len(recent), 8)
+        for recent_text in recent[-check_window:]:
+            if levenshtein_ratio(text, recent_text) >= ratio_threshold:
+                # 选留更长的版本（信息更全）
+                if len(text) > len(recent_text):
+                    recent.remove(recent_text)
+                    break
+                return False
         recent.append(text)
         if len(recent) > self._history:
             del recent[: len(recent) - self._history]

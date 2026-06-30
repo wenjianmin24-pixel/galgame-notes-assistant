@@ -14,6 +14,9 @@ dependencies = [
 dev = ["pytest>=8.0", "websockets>=12.0"]
 ocr = [
   "mss>=9.0",
+  "onnxruntime>=1.7",
+  "opencv-python>=4.5",
+  "numpy>=1.19",
   "winrt-runtime>=3.0; sys_platform == 'win32'",
   "winrt-Windows.Foundation>=3.0; sys_platform == 'win32'",
   "winrt-Windows.Foundation.Collections>=3.0; sys_platform == 'win32'",

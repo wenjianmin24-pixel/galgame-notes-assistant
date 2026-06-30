@@ -69,23 +69,41 @@ def ensure_capture_mode(game_id: str):
     else:
         _stop_ocr(game_id)
 
+def _ocr_settings_for(game_id: str) -> dict:
+    """读取某游戏的 OCR 配置：优先 meta.json 里的游戏专属值，否则回退全局 settings。"""
+    _DEFAULTS = {
+        "ocr_region": {"x": 0, "y": 0, "w": 800, "h": 200},
+        "ocr_window": None, "ocr_mode": "onnx", "ocr_lang": "ch", "ocr_interval": 1.0,
+    }
+    gs = {}
+    if game_id in stores or Path(CONFIG.data_dir, game_id, "meta.json").exists():
+        store = get_store(game_id)
+        gs = store.meta()
+    out = {}
+    for key in _DEFAULTS:
+        v = gs.get(key)
+        if v is None:
+            v = settings.get(key)
+        if v is None:
+            v = _DEFAULTS[key]
+        out[key] = v
+    return out
+
+
 def _start_ocr(game_id: str):
     if game_id in ocr_captures and ocr_captures[game_id].running:
         return
-    region = settings.get("ocr_region") or {"x": 0, "y": 0, "w": 800, "h": 200}
-    interval = settings.get("ocr_interval") or 1.0
-    lang = settings.get("ocr_lang") or "ch"
-    window = settings.get("ocr_window")
-    ocr_mode = settings.get("ocr_mode") or "local"
+    s = _ocr_settings_for(game_id)
     cap = OCRCapture(
-        region=region, game_id=game_id, interval=interval,
-        lang=lang, window_title=window, ocr_mode=ocr_mode, on_event=ingest,
+        region=s["ocr_region"], game_id=game_id, interval=s["ocr_interval"],
+        lang=s["ocr_lang"], window_title=s.get("ocr_window"),
+        ocr_mode=s["ocr_mode"], on_event=ingest,
     )
     try:
         cap.start()
         ocr_captures[game_id] = cap
-        bound = f" window={window!r}" if window else ""
-        print(f"[ocr] started mode={ocr_mode} region={region} interval={interval}s{bound}", flush=True)
+        bound = f" window={s.get('ocr_window')!r}" if s.get("ocr_window") else ""
+        print(f"[ocr] started mode={s['ocr_mode']} region={s['ocr_region']} interval={s['ocr_interval']}s{bound}", flush=True)
     except Exception as e:
         print(f"[ocr] start failed: {e}", flush=True)
 
@@ -134,8 +152,18 @@ bridge = TextractorBridge(game_id=active_game, on_event=ingest)
 
 def set_active_game(name):
     global active_game
-    active_game = slugify(name) if name else "default"
+    new_id = slugify(name) if name else "default"
+    if new_id == active_game:
+        return
+    # OCR 通道：停旧起新，加载新游戏的专属设置
+    prev = active_game
+    active_game = new_id
     bridge.set_game(active_game)
+    if prev in ocr_captures:
+        _stop_ocr(prev)
+    mode = settings.get("capture_mode", "textractor")
+    if mode == "ocr":
+        _start_ocr(active_game)
 
 def emit_status():
     socketio.emit("textractor_status", {
@@ -212,12 +240,42 @@ def put_notes():
     socketio.emit("notes", {"notes": store.read_notes()})
     return jsonify(ok=True)
 
+@app.get("/api/games")
+def list_games():
+    """列出所有已有游戏（data/ 下有 transcript.md 的目录），附带基本统计。"""
+    result = []
+    root = Path(CONFIG.data_dir)
+    if root.exists():
+        for d in sorted(root.iterdir()):
+            if not d.is_dir() or (not (d / "meta.json").exists() and not (d / "transcript.md").exists()):
+                continue
+            gid = d.name
+            store = get_store(gid)
+            notes = store.read_notes()
+            transcript = store.read_transcript()
+            line_count = sum(1 for _ in transcript.splitlines()) if transcript else 0
+            meta = store.meta()
+            result.append({
+                "game_id": gid,
+                "title": meta.get("title", gid),
+                "transcript_lines": line_count,
+                "notes_size": len(notes),
+                "has_ocr_region": bool(meta.get("ocr_region")),
+                "created_at": meta.get("created_at", ""),
+                "is_active": gid == active_game,
+            })
+    return jsonify(games=result, active=active_game)
+
+
 @app.post("/api/game")
 def post_game():
     global active_game
     d = request.json
     set_active_game(d.get("name", ""))
     emit_status()
+    # 标注最后的游玩时间
+    store = get_store(active_game)
+    store.set_meta(**store.meta(), last_access=__import__("time").strftime("%Y-%m-%dT%H:%M:%S"))
     return jsonify(ok=True, game_id=active_game)
 
 @app.get("/api/textractor/status")
@@ -228,16 +286,32 @@ def textractor_status():
 
 @app.get("/api/settings")
 def get_settings():
-    return jsonify(settings.get_all())
+    """全局设置 + 当前游戏的 OCR 专属覆盖合并后返回。"""
+    base = settings.get_all()
+    gs = get_store(active_game).meta()
+    for k in ("ocr_region", "ocr_window", "ocr_mode", "ocr_lang", "ocr_interval"):
+        if k in gs:
+            base[k] = gs[k]
+    return jsonify(base)
 
 @app.put("/api/settings")
 def put_settings():
     body = request.json or {}
+    # 游戏专属 OCR 字段存到游戏的 meta.json，其他存全局 settings
+    game_ocr_keys = {"ocr_region", "ocr_window", "ocr_mode", "ocr_lang", "ocr_interval"}
+    game_body = {k: body[k] for k in game_ocr_keys if k in body}
+    global_body = {k: v for k, v in body.items() if k not in game_ocr_keys}
     prev_mode = settings.get("capture_mode", "textractor")
-    prev_ocr_mode = settings.get("ocr_mode", "local")
-    settings.update(body)
+    prev_ocr_mode = game_body.get("ocr_mode") or _ocr_settings_for(active_game).get("ocr_mode", "local")
+    if global_body:
+        settings.update(global_body)
+    if game_body:
+        store = get_store(active_game)
+        m = store.meta()
+        m.update(game_body)
+        store.set_meta(**m)
     new_mode = settings.get("capture_mode", "textractor")
-    new_ocr_mode = settings.get("ocr_mode", "local")
+    new_ocr_mode = settings.get("ocr_mode") or _ocr_settings_for(active_game).get("ocr_mode", "local")
     # LLM 配置变更 → 热更新 Organizer/Indexer（ChatEngine 每次现建，天然最新）
     if any(k.startswith("llm_") or k == "embed_model" for k in body):
         _reconfigure_llm()
@@ -317,12 +391,15 @@ def list_ocr_windows():
 
 @app.post("/api/ocr/region")
 def set_ocr_region():
-    """直接设置 OCR 区域（前端在截图上框选后调用）。region 已是相对窗口的偏移。"""
+    """直接设置 OCR 区域（前端在截图上框选后调用）。region 已是相对窗口的偏移。存到游戏 meta。"""
     d = request.json or {}
     region = d.get("region")
     if not region or not region.get("w") or not region.get("h"):
         return jsonify(error="region 无效"), 400
-    settings.update({"ocr_region": region})
+    store = get_store(active_game)
+    m = store.meta()
+    m["ocr_region"] = region
+    store.set_meta(**m)
     cap = ocr_captures.get(active_game)
     if cap and cap.running:
         cap.set_region(region)
@@ -388,7 +465,11 @@ def pick_ocr_region():
                     }
                 else:
                     return jsonify(error=f"找不到绑定窗口：{window}（请先刷新窗口列表或重新选取）"), 400
-            settings.update({"ocr_region": result})
+            # 存到游戏专属 meta，不存全局 settings
+            store = get_store(active_game)
+            m = store.meta()
+            m["ocr_region"] = result
+            store.set_meta(**m)
             mode = settings.get("capture_mode", "textractor")
             if mode == "ocr":
                 cap = ocr_captures.get(active_game)

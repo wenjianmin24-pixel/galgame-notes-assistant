@@ -28,3 +28,5 @@ settings.json
 
 # 运行时数据：transcript / notes / characters / settings（含真实 key 与游玩记录）
 data/
+# OCR 模型缓存（Luna PP-OCR 模型，运行时自动下载）
+cache/ocrmodel/

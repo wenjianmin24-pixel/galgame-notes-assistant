@@ -51,6 +51,8 @@ _ROLE_DEFAULT_MODEL = {
     "ocr_vision": "gpt-4o",
 }
 
+_OCR_DEFAULT_MODE = "onnx"
+
 
 class RuntimeSettings:
     """可运行时修改的设置，存于 data/settings.json。"""
