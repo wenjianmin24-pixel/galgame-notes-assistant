@@ -631,8 +631,8 @@ async function loadSnapshot() {
     const img = new Image();
     img.onload = () => {
       _snapImg = img;
-      // 缩放到弹窗可容纳的尺寸
-      const maxW = 1000, maxH = 560;
+      // 缩放到弹窗可容纳的尺寸（大一点，保证文字可辨）
+      const maxW = 1500, maxH = 850;
       let scale = Math.min(maxW / img.width, maxH / img.height, 1);
       _snapScale = scale;
       snapshotCanvas.width = Math.round(img.width * scale);
