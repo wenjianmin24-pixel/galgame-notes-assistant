@@ -133,6 +133,8 @@ class OCRCapture:
         self._last_pixels = None
         self._pending_frame = None   # 画面变化后等稳定再 OCR 的待处理帧
         self._stable_count = 0        # 连续稳定帧计数
+        self._last_ocr_time = 0.0     # 上次 OCR 完成时间（用于 max-wait）
+        self._pending_since = 0.0     # pending_frame 首次设定的时间
         self._thread = Thread(target=self._run, daemon=True)
         self._thread.start()
         self.running = True
@@ -180,24 +182,40 @@ class OCRCapture:
             try:
                 pil = self._capture_frame()
 
-                # 稳定性门控：画面变了就存起来，连续 stable_frames 帧不变才跑 OCR
-                # 防止类型机逐字推进时抓到半成品句子（LunaTranslator "analysis" 策略）
+                now = time()
+
+                # 稳定性门控：画面变了就存起来，连续稳定 2 帧才跑 OCR
+                # 防止类型机逐字推进时抓到半成品句子
                 changed = self._frame_changed(pil)
                 if changed:
                     self._stable_count = 0
+                    if self._pending_frame is None:
+                        self._pending_since = now
                     self._pending_frame = pil
                     self.last_error = None
                     sleep(self.interval)
                     continue
+
                 # 画面没变：累积稳定计数
                 self._stable_count += 1
-                if self._stable_count < 3 or self._pending_frame is None:
+                # 触发条件：
+                #   a) 连续 2 帧稳定（正常结束）
+                #   b) 自首次变化起超过 4 秒（打字机兜底——等太久了，强跑）
+                stable_enough = self._stable_count >= 2
+                waited_too_long = (
+                    self._pending_since > 0
+                    and now - self._pending_since > 4.0
+                    and now - self._last_ocr_time > 4.0
+                )
+                if (not stable_enough and not waited_too_long) or self._pending_frame is None:
                     sleep(self.interval)
                     continue
-                # 稳定够久了 → 对之前留存的那帧跑 OCR
+
+                # 对之前留存的稳定帧跑 OCR
                 ocr_pil = self._pending_frame
                 self._pending_frame = None
                 self._stable_count = 0
+                self._pending_since = 0.0
 
                 lines = self._engine.recognize(ocr_pil)
                 # 清洗 OCR 输出（去控制字符、ruby、空白折叠）
@@ -218,6 +236,7 @@ class OCRCapture:
                 self._last_hash = h
                 self.last_text = combined
                 self.frame_count += 1
+                self._last_ocr_time = time()
                 self.last_error = None
                 if self.on_event:
                     for line in lines:
