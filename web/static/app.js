@@ -359,6 +359,7 @@ const saveSettings = document.getElementById("saveSettings");
 const setFields = {
   llm_base_url: document.getElementById("set_llm_base_url"),
   llm_api_key: document.getElementById("set_llm_api_key"),
+  organize_batch_size: document.getElementById("set_organize_batch_size"),
   capture_mode: document.getElementById("set_capture_mode"),
   ocr_mode: document.getElementById("set_ocr_mode"),
   ocr_region: null,  // composite: x,y,w,h
@@ -427,6 +428,7 @@ function _populateSettings() {
   const s = _settingsCache;
   setFields.llm_base_url.value = s.llm_base_url || "";
   setFields.llm_api_key.value = s.llm_api_key || "";
+  setFields.organize_batch_size.value = s.organize_batch_size || 20;
   setFields.capture_mode.value = s.capture_mode || "textractor";
   setFields.ocr_mode.value = s.ocr_mode || "rapid";
   document.getElementById("ocrVisionBlock").style.display =
@@ -531,6 +533,7 @@ async function saveSettingsNow() {
   const updates = {
     llm_base_url: setFields.llm_base_url.value.trim(),
     llm_api_key: setFields.llm_api_key.value.trim(),
+    organize_batch_size: parseInt(setFields.organize_batch_size.value) || 20,
     capture_mode: setFields.capture_mode.value,
     ocr_mode: setFields.ocr_mode.value,
     ocr_interval: parseFloat(setFields.ocr_interval.value) || 1.0,

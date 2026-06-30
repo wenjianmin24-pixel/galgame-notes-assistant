@@ -98,10 +98,12 @@ class Organizer:
     def feed(self, line: str):
         self._pending.append(line)
 
-    def reconfigure(self, llm, model):
-        """热更新 LLM 客户端和模型（设置变更后调用）。"""
+    def reconfigure(self, llm, model, batch_size=None):
+        """热更新 LLM 客户端、模型和批量大小（设置变更后调用）。"""
         self.llm = llm
         self.model = model
+        if batch_size is not None:
+            self.batch_size = batch_size
 
     def should_trigger(self) -> bool:
         return (not self.busy) and len(self._pending) >= self.batch_size

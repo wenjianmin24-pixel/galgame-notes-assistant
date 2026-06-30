@@ -32,6 +32,7 @@ _RUNTIME_FIELDS = [
     "llm_chat_base_url", "llm_chat_api_key", "llm_chat_model",
     "llm_embed_base_url", "llm_embed_api_key", "llm_embed_model",
     # 抓取 / OCR
+    "organize_batch_size",
     "capture_mode", "ocr_region", "ocr_interval", "ocr_lang", "ocr_window",
     "ocr_mode", "llm_ocr_vision_base_url", "llm_ocr_vision_api_key", "llm_ocr_vision_model",
 ]

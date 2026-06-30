@@ -97,6 +97,10 @@
             <input id="set_llm_api_key" class="field" type="password" placeholder="sk-...">
           </label>
           <div class="muted" style="margin:10px 0 6px">下方每个角色可单独覆盖端点/Key/模型，留空即用全局。</div>
+          <label class="sfield">自动整理：每 N 条台词触发一次
+            <input id="set_organize_batch_size" class="field" type="number" min="5" max="100" value="20" placeholder="20">
+          </label>
+          <span class="muted" style="font-size:12px">数值越小越频繁（也越费 token）。推荐 15–30。</span>
           <div id="modelBlocks"></div>
         </div>
 

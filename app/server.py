@@ -50,9 +50,12 @@ def get_index(game_id: str) -> TranscriptIndex:
 
 def _reconfigure_llm():
     """设置变更后热更新所有 game 的 Organizer / Indexer。"""
+    batch_size = settings.get("organize_batch_size")
+    # settings 存成 str 或 int 都有可能，统一转 int
+    bs = int(batch_size) if batch_size is not None else None
     for gid, org in organizers.items():
         try:
-            org.reconfigure(get_llm("organize"), model_config("organize")[2])
+            org.reconfigure(get_llm("organize"), model_config("organize")[2], batch_size=bs)
         except Exception as e:
             print(f"[reconfigure] organizer {gid}: {e}", flush=True)
     for gid, idx in indexes.items():
@@ -317,8 +320,8 @@ def put_settings():
         store.set_meta(**m)
     new_mode = settings.get("capture_mode", "textractor")
     new_ocr_mode = _ocr_settings_for(active_game).get("ocr_mode", "rapid")
-    # LLM 配置变更 → 热更新 Organizer/Indexer（ChatEngine 每次现建，天然最新）
-    if any(k.startswith("llm_") or k == "embed_model" for k in body):
+    # LLM / batch size 配置变更 → 热更新 Organizer/Indexer
+    if any(k.startswith("llm_") or k in ("embed_model", "organize_batch_size") for k in body):
         _reconfigure_llm()
     # 抓取模式切换
     if new_mode != prev_mode:

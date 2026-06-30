@@ -239,10 +239,11 @@ class OCRCapture:
                 self._last_ocr_time = time()
                 self.last_error = None
                 if self.on_event:
-                    for line in lines:
-                        self.on_event(LineEvent(
-                            game_id=self.game_id, source="ocr", text=line, ts=time(),
-                        ))
+                    # 同帧多行合并为一条事件（游戏文本框窄，逐行显示无意义）
+                    self.on_event(LineEvent(
+                        game_id=self.game_id, source="ocr",
+                        text=combined, ts=time(),
+                    ))
             except Exception as e:
                 tb = traceback.format_exc()
                 self.last_error = f"{type(e).__name__}: {e}"
