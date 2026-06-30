@@ -37,13 +37,38 @@ class ONNXOCR:
         self.lang_tag = "onnx:PP-OCRv5_mobile"
 
     def recognize(self, pil_image) -> list[str]:
-        """识别裁剪好的台词区域——已由用户框选，跳过检测直接识别。"""
+        """检测文本行位置 → 逐行识别 → 返回行列表。
+
+        与旧版不同：不再把整张框选图当单行送 CTC（那在多行/多元素
+        区域上产乱码），而是先跑 DBNet 检测出每个文本块，排序后
+        逐块裁剪送 CRNN 识别。"""
         arr = np.array(pil_image.convert("RGB"), dtype=np.uint8)
-        # 对整张图做识别（框选区域 = 文本行，不需要再检测拆行）
-        text = self._ctc_recognize(arr)
-        if not text:
-            return []
-        return [text]
+
+        # ── 主路径：检测 → 排序 → 逐行识别 ──
+        try:
+            boxes = self._detect(arr)
+            if boxes:
+                boxes = self._sort_boxes(boxes)
+                lines = []
+                for box in boxes:
+                    text = self._recognize_box(arr, box)
+                    text = text.strip() if text else ""
+                    if text:
+                        lines.append(text)
+                if lines:
+                    return lines
+        except Exception:
+            # 检测异常（极少见，如 opencv 崩溃）→ 走兜底
+            pass
+
+        # ── 兜底：图像极窄（单行文本，检测模型可能漏掉）──
+        h, w = arr.shape[:2]
+        if h < 60 and h / max(w, 1) < 0.15:
+            text = self._ctc_recognize(arr)
+            if text and text.strip():
+                return [text.strip()]
+
+        return []
 
     # ── 检测 ───────────────────────────────────────────────
 
