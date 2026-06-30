@@ -121,6 +121,7 @@ def _run_organize(game_id: str):
     try:
         if org.organize():
             socketio.emit("notes", {"notes": store.read_notes()})
+            socketio.emit("characters", {"characters": store.read_characters()})
     except Exception as e:
         print(f"[organize] {game_id} failed: {e}", flush=True)
 
@@ -221,7 +222,7 @@ def post_chat():
         index=idx, top_k=CONFIG.vector_top_k,
     )
     reply = engine.answer(d["question"])
-    return jsonify(reply=reply, notes=store.read_notes())
+    return jsonify(reply=reply, notes=store.read_notes(), characters=store.read_characters())
 
 @app.get("/api/notes")
 def get_notes():

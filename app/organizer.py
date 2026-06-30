@@ -1,3 +1,5 @@
+import re
+
 ORGANIZE_SYSTEM = """你是一个正在推 galgame 的玩家。你在游戏窗口旁边开着一个笔记，但你有明确的记法：
 
 **核心原则：客观信息记录为主，主观感受仅作点缀。已有笔记一字不改，只做增量追加。**
@@ -68,6 +70,21 @@ def build_organize_prompt(new_lines, existing_notes, characters):
         {"role": "user", "content": user},
     ]
 
+# 从 notes 中提取人物档案段落的正则
+_CHAR_HEADING_RE = re.compile(
+    r'(?:^|\n)#{1,4}[^\S\n]*人物(?:档案|表)[^\S\n]*\n(.*?)(?=\n#{1,4}[^\S\n]|\Z)',
+    re.DOTALL,
+)
+
+
+def extract_characters_section(notes_text: str) -> str:
+    """从 LLM 整理的 notes 中提取「人物档案」段落，返回纯内容（不含标题行）。"""
+    m = _CHAR_HEADING_RE.search(notes_text)
+    if not m:
+        return ""
+    return m.group(1).strip()
+
+
 class Organizer:
     def __init__(self, store, llm, model, batch_size=20, interval_sec=180):
         self.store = store
@@ -101,6 +118,9 @@ class Organizer:
             )
             notes = self.llm.chat(msgs, self.model, temperature=0.2)
             self.store.write_notes(notes)
+            chars = extract_characters_section(notes)
+            if chars:
+                self.store.write_characters(chars)
             return True
         finally:
             self.busy = False

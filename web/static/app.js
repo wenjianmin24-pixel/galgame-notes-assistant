@@ -145,12 +145,23 @@ function renderMd(md) {
   return h;
 }
 
+const charsEl = document.getElementById("characters");
+
 function renderNotes(md) {
   if (!md || !md.trim()) {
     notesEl.innerHTML = `<div class="empty">${EMPTY.notes}</div>`;
     return;
   }
   notesEl.innerHTML = renderMd(md);
+}
+
+function renderCharacters(md) {
+  if (!charsEl) return;
+  if (!md || !md.trim()) {
+    charsEl.innerHTML = "";
+    return;
+  }
+  charsEl.innerHTML = renderMd(md);
 }
 
 // ---- 笔记编辑模式 ----
@@ -239,10 +250,15 @@ socket.on("notes", (data) => {
   renderNotes(data.notes || "");
 });
 
+socket.on("characters", (data) => {
+  renderCharacters(data.characters || "");
+});
+
 async function refreshNotes() {
   const r = await fetch(`/api/notes?game_id=${GAME_ID}`);
   const d = await r.json();
   renderNotes(d.notes || "");
+  renderCharacters(d.characters || "");
 }
 
 async function post(path, body) {
@@ -306,6 +322,7 @@ document.getElementById("ask").onclick = async () => {
   chatEl.scrollTop = chatEl.scrollHeight;
 
   renderNotes(d.notes || "");
+  renderCharacters(d.characters || "");
 };
 document.getElementById("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") document.getElementById("ask").click();
