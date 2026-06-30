@@ -30,3 +30,7 @@ settings.json
 data/
 # OCR 模型缓存（Luna PP-OCR 模型，运行时自动下载）
 cache/ocrmodel/
+
+# Tauri build artifacts
+tauri/src-tauri/target/
+tauri/src-tauri/gen/
