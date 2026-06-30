@@ -73,7 +73,7 @@ def _ocr_settings_for(game_id: str) -> dict:
     """读取某游戏的 OCR 配置：优先 meta.json 里的游戏专属值，否则回退全局 settings。"""
     _DEFAULTS = {
         "ocr_region": {"x": 0, "y": 0, "w": 800, "h": 200},
-        "ocr_window": None, "ocr_mode": "onnx", "ocr_lang": "ch", "ocr_interval": 1.0,
+        "ocr_window": None, "ocr_mode": "rapid", "ocr_lang": "ch", "ocr_interval": 1.0,
     }
     gs = {}
     if game_id in stores or Path(CONFIG.data_dir, game_id, "meta.json").exists():
@@ -303,7 +303,7 @@ def put_settings():
     game_body = {k: body[k] for k in game_ocr_keys if k in body}
     global_body = {k: v for k, v in body.items() if k not in game_ocr_keys}
     prev_mode = settings.get("capture_mode", "textractor")
-    prev_ocr_mode = game_body.get("ocr_mode") or _ocr_settings_for(active_game).get("ocr_mode", "local")
+    prev_ocr_mode = _ocr_settings_for(active_game).get("ocr_mode", "rapid")
     if global_body:
         settings.update(global_body)
     if game_body:
@@ -312,7 +312,7 @@ def put_settings():
         m.update(game_body)
         store.set_meta(**m)
     new_mode = settings.get("capture_mode", "textractor")
-    new_ocr_mode = settings.get("ocr_mode") or _ocr_settings_for(active_game).get("ocr_mode", "local")
+    new_ocr_mode = _ocr_settings_for(active_game).get("ocr_mode", "rapid")
     # LLM 配置变更 → 热更新 Organizer/Indexer（ChatEngine 每次现建，天然最新）
     if any(k.startswith("llm_") or k == "embed_model" for k in body):
         _reconfigure_llm()
@@ -508,7 +508,7 @@ def ocr_status():
         lang_tag=cap.lang_tag if cap else None,
         window=window,
         window_bound=bool(getattr(cap, "window_title", None)) if cap else bool(window),
-        ocr_mode=settings.get("ocr_mode", "local"),
+        ocr_mode=_ocr_settings_for(active_game).get("ocr_mode", "rapid"),
     )
 
 if __name__ == "__main__":

@@ -51,7 +51,7 @@ _ROLE_DEFAULT_MODEL = {
     "ocr_vision": "gpt-4o",
 }
 
-_OCR_DEFAULT_MODE = "onnx"
+_OCR_DEFAULT_MODE = "rapid"
 
 
 class RuntimeSettings:

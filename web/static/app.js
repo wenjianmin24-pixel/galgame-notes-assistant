@@ -428,7 +428,7 @@ function _populateSettings() {
   setFields.llm_base_url.value = s.llm_base_url || "";
   setFields.llm_api_key.value = s.llm_api_key || "";
   setFields.capture_mode.value = s.capture_mode || "textractor";
-  setFields.ocr_mode.value = s.ocr_mode || "local";
+  setFields.ocr_mode.value = s.ocr_mode || "rapid";
   document.getElementById("ocrVisionBlock").style.display =
     setFields.ocr_mode.value === "ai_vision" ? "" : "none";
   for (const role of Object.keys(mb)) {
@@ -683,7 +683,9 @@ confirmRegionBtn.addEventListener("click", async () => {
 });
 
 document.getElementById("pickRegionBtn").addEventListener("click", async () => {
-  // 先关掉设置面板，露出截图弹窗
+  // 先保存当前设置（防止用户改了 ocr_mode 没点保存就框选）
+  await saveSettingsNow();
+  // 关掉设置面板，露出截图弹窗
   settingsOverlay.style.display = "none";
   snapshotOverlay.style.display = "flex";
   await loadSnapshot();
@@ -711,7 +713,7 @@ async function pollOcrStatus() {
     if (ocrLiveEl) {
       if (d.running) {
         const reg = d.region ? `${d.region.x},${d.region.y} ${d.region.w}×${d.region.h}` : "无区域";
-        const mode = d.ocr_mode === "ai_vision" ? "AI视觉" : "本地";
+        const mode = d.ocr_mode === "ai_vision" ? "AI视觉" : d.ocr_mode === "rapid" ? "RapidOCR" : d.ocr_mode === "onnx" ? "ONNX" : "本地";
         const lang = d.lang_tag ? ` · ${d.lang_tag}` : "";
         const win = d.window_bound ? ` · 绑定:${d.window}` : " · 屏幕坐标";
         ocrLiveEl.textContent = `运行中[${mode}] · 已识别 ${d.frame_count} 帧${lang}${win} · 区域 ${reg}`;

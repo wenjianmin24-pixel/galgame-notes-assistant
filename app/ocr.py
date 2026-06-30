@@ -117,6 +117,9 @@ class OCRCapture:
         if self.ocr_mode == "ai_vision":
             from app.ocr_ai import AIVisionOCR
             self._engine = AIVisionOCR()
+        elif self.ocr_mode == "rapid":
+            from app.ocr_rapid import RapidOCREngine
+            self._engine = RapidOCREngine()
         elif self.ocr_mode == "onnx":
             from app.ocr_onnx import ONNXOCR
             self._engine = ONNXOCR()
