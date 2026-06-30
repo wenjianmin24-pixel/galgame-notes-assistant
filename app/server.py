@@ -520,7 +520,9 @@ def ocr_status():
 
 if __name__ == "__main__":
     import os
-    DEBUG = True
+    # Tauri spawns without console → debug reloader fails.
+    # Tauri sets GNA_TAURI=1 to signal headless mode.
+    DEBUG = not os.environ.get("GNA_TAURI")
     if (not DEBUG) or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         mode = settings.get("capture_mode", "textractor")
         if mode == "ocr":

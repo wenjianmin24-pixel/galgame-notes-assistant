@@ -1,11 +1,11 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::Manager;
 use std::net::TcpStream;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
+use tauri::Manager;
 
 struct PythonBackend(Mutex<Option<Child>>);
 
@@ -30,10 +30,12 @@ fn wait_for_server(host: &str, port: u16, max_retries: u32) -> bool {
 }
 
 fn main() {
-    // Resolve project root relative to the executable
+    // Resolve project root relative to the executable:
+    //   tauri/src-tauri/target/release/gna.exe
+    //   → release/ → target/ → src-tauri/ → tauri/ → project root
     let exe = std::env::current_exe().unwrap();
     let project_root = exe
-        .parent()       // release/
+        .parent()       // release/ or debug/
         .unwrap()
         .parent()       // target/
         .unwrap()
@@ -41,19 +43,53 @@ fn main() {
         .unwrap()
         .parent()       // tauri/
         .unwrap()
+        .parent()       // project root ← 这层之前漏了！
+        .unwrap()
         .to_path_buf();
 
     let python_exe = find_python(&project_root);
-    println!("Starting Python backend: {}", python_exe.display());
 
-    let child = Command::new(&python_exe)
-        .args(["-m", "app.server"])
-        .current_dir(&project_root)
+    // Fallback: if exe-relative path fails, try CWD
+    let (python, work_dir) = if python_exe.exists() {
+        (python_exe, project_root.clone())
+    } else {
+        let cwd = std::env::current_dir().unwrap();
+        let py = find_python(&cwd);
+        (py, cwd)
+    };
+
+    let mut child = Command::new(&python)
+        .args(["-m", "app.tauri_server"])
+        .current_dir(&work_dir)
+        .env("GNA_TAURI", "1")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn()
-        .expect("Failed to start Python backend");
+        .unwrap_or_else(|e| {
+            panic!(
+                "Failed to start Python ({}) from {}: {}",
+                python.display(),
+                work_dir.display(),
+                e
+            )
+        });
 
-    if !wait_for_server("127.0.0.1", 5000, 20) {
-        eprintln!("Python server did not start within 10s");
+    if !wait_for_server("127.0.0.1", 5000, 40) {
+        // Check if Python already died
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                panic!(
+                    "Python exited early with status {:?} (check .venv setup)",
+                    status
+                );
+            }
+            Ok(None) => {
+                eprintln!("Python still running but server not reachable after 15s");
+            }
+            Err(e) => {
+                eprintln!("Error checking Python status: {}", e);
+            }
+        }
     }
 
     tauri::Builder::default()
