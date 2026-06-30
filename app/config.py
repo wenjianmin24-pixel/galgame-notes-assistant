@@ -33,7 +33,7 @@ _RUNTIME_FIELDS = [
     "llm_embed_base_url", "llm_embed_api_key", "llm_embed_model",
     # 抓取 / OCR
     "capture_mode", "ocr_region", "ocr_interval", "ocr_lang", "ocr_window",
-    "ocr_mode", "ocr_vision_base_url", "ocr_vision_api_key", "ocr_vision_model",
+    "ocr_mode", "llm_ocr_vision_base_url", "llm_ocr_vision_api_key", "llm_ocr_vision_model",
 ]
 
 # 角色专属字段名 → legacy 别名（旧 settings.json 兼容）

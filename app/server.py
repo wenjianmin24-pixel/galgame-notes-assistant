@@ -304,6 +304,10 @@ def put_settings():
     global_body = {k: v for k, v in body.items() if k not in game_ocr_keys}
     prev_mode = settings.get("capture_mode", "textractor")
     prev_ocr_mode = _ocr_settings_for(active_game).get("ocr_mode", "rapid")
+    # 清理旧版遗留：ocr_* 字段已迁到游戏 meta，全局里不应再有
+    for k in list(settings.get_all().keys()):
+        if k in game_ocr_keys:
+            settings.update({k: None})
     if global_body:
         settings.update(global_body)
     if game_body:
@@ -332,8 +336,8 @@ def put_settings():
                 print(f"[textractor] restart failed: {e}", flush=True)
     elif new_mode == "ocr" and (
         "ocr_interval" in body or "ocr_window" in body or "ocr_lang" in body
-        or "ocr_mode" in body or "ocr_vision_base_url" in body
-        or "ocr_vision_api_key" in body or "ocr_vision_model" in body
+        or "ocr_mode" in body or "llm_ocr_vision_base_url" in body
+        or "llm_ocr_vision_api_key" in body or "llm_ocr_vision_model" in body
         or prev_ocr_mode != new_ocr_mode
     ):
         # OCR 相关参数或模式改了的话重启 OCR
