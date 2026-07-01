@@ -49,7 +49,19 @@ def test_prompt_contains_new_lines_and_existing_notes():
     assert "【主角】你好" in user_text
     assert "# 旧笔记" in user_text
     assert "小雪" in user_text
+    assert "整合" in user_text  # 新 prompt 强调整合而非追加
     assert msgs[0]["role"] == "system"
+
+def test_extract_characters_section_new_heading():
+    """新标题「主要人物」也能正确提取。"""
+    notes = """## 主要人物
+**小明**：主角的同学。性格开朗。
+
+## 剧情进展
+小明出场了。"""
+    chars = extract_characters_section(notes)
+    assert "**小明**" in chars
+    assert "剧情进展" not in chars
 
 def test_should_trigger_at_batch_size(tmp_path):
     from app.memory import GameStore

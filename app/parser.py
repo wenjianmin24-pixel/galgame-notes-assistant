@@ -5,8 +5,9 @@
   2. 【name】text         — 中文 galgame 标准
   3. 「name」text         — 说话人在括号内
   4. name「text」         — 短名字 +「」包裹的对话
-  5. name：text / name: text — 冒号分隔
-  6. 兜底：整串当正文，说话人 None
+  5. name「text           — 半截台词（无闭合」，RPG 打字机 / OCR 部分捕获）
+  6. name：text / name: text — 冒号分隔
+  7. 兜底：整串当正文，说话人 None
 
 编码修复：Textractor 钩子有时用错 codepage 读游戏内存，导致
 部分汉字变成生僻字（如"活泼"→"活頷"）。这里用多组编解码对
@@ -126,6 +127,8 @@ _PATTERNS: list[tuple[re.Pattern, bool]] = [
     (re.compile(r'^[「]([^」]+)[」]\s*(.+)$'), False),
     # 5. name「text」— 短名字（≤8字符，不含特殊符号）+「」对话
     (re.compile(r'^([^\s「」@【】：:，,。\.！!？?、]{1,8})[「]((?:[^「」]|「[^「」]*」)*)[」]\s*$'), True),
+    # 5b. name「text（半截台词：RPG 打字机逐字出现 / OCR 只抓到前半句，无闭合」）
+    (re.compile(r'^([^\s「」@【】：:，,。\.！!？?、]{1,8})[「](.+)$'), False),
     # 6. name：text / name: text — 冒号分隔，短名字
     (re.compile(r'^([^\s：:]{1,8})[：:]\s*(.+)$'), False),
 ]

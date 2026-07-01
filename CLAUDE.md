@@ -63,6 +63,8 @@ cd C:\Users\温建民\projects\galgame-notes-assistant
 - **PrintWindow 坑**：flag 用 `3`（PW_CLIENTONLY|PW_RENDERFULLCONTENT）；64 位下 Handle 返回函数必须设 `argtypes/restype` 否则指针截断。Explorer 等部分窗口抓 None 属正常，回退屏幕截取。
 - **去重**：`LineDeduper` 归一化（去空白）+ 50 条滑动窗口，防 OCR 抖动重复。
 - **organize 不阻塞抓取线程**：`ingest` 触发整理时丢后台线程（`_run_organize`），`Organizer.busy` 防重入。
+- **笔记整理是整合式而非追加式**：提示词要求 LLM 把新信息融合进已有笔记（角色合并为一条、剧情按时间叙事），而不是原样保留旧内容再追加新条目。写 prompt 时不要倒退成"保留已有、只追加"模式。
+- **parser 半截台词**：`app/parser.py` 的 pattern #5b 处理 RPG 打字机 / OCR 只抓到前半句的情况（`name「text` 无闭合 `」`）。正常完整台词走 #5，这个只作兜底。
 
 **多模型配置**：三角色（organize/chat/embed）+ AI 视觉 OCR 各自可独立配端点+key+模型，留空回退全局。`app/config.py` `model_config(role)` 回退链：角色专属 → 全局 `llm_base_url/llm_api_key` → .env → legacy 别名（`llm_model_organize`/`llm_model_chat`/`embed_model`）。`LLMClient` 按 (base,key) 缓存 OpenAI 客户端；`list_models()`/`test_chat()`/`vision_chat()`。`PUT /api/settings` 含 `llm_*` 时热 `reconfigure` 所有 Organizer/Indexer（ChatEngine 每请求现建，天然最新）。
 
