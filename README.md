@@ -1,67 +1,78 @@
 # galgame-notes-assistant
 
-AI 笔记助手 for galgame / 视觉小说：游玩时实时抓取屏幕上的文本，自动整理成结构化笔记（人物、场景、事件、伏笔、选项分支），还能和一个"懂你正在玩什么游戏"的 AI 讨论剧情。
+AI 笔记助手 for galgame / 视觉小说——游玩时实时抓取屏幕上的文本（Textractor 钩子 + OCR 截屏双通道），云端 LLM 自动整理结构化笔记（人物表、剧情节点、伏笔、选项分支），支持按游戏分库管理和剧情感知的对话陪读。
 
-## 解决什么痛点
+## 当前状态
 
-玩 galgame / 视觉小说时内容量大，边玩边手动记笔记会频繁打断沉浸感。本项目的目标是让 AI 在后台实时记录重要文本，玩完一段就有现成笔记可看，并随时能就剧情提问、讨论，讨论中的发现回填进笔记。
+**v3/v4 已实现**，44 个单元测试全绿。核心管线全通：抓取 → 去重 → 转录落盘 → AI 自动整理笔记 → 向量增强对话陪读 → 游戏管理 → Tauri 桌面窗口。
 
-## 抓取方式（双通道）
+## 抓取方式
 
-- **主通道 — Textractor（内存文本钩子）**：用于 PC 原生引擎的 galgame。准确、零延迟、能拿到说话人名字，中文日文都吃。
-- **兜底通道 — 截屏 + OCR**：用于 Textractor 抓不到的场景（模拟器、非传统引擎视觉小说）。本地 PaddleOCR，按窗口/区域定时截屏并去重，仅在文本变化时推送新台词。
+| 通道 | 引擎 | 速度 | 精度 | 适用 |
+|------|------|------|------|------|
+| **Textractor**（主） | 内存文本钩子 | 即时 | ~100% | PC 原生引擎（KiriKiri / RPGMaker 等） |
+| **RapidOCR**（推荐） | PP-OCRv4 + ONNX | ~150ms | 高 | 大部分 VN 字幕 |
+| **Windows.Media.Ocr**（备用） | winrt 系统内置 | ~100ms | 中 | 桌面应用 |
+| **AI 视觉 OCR**（高端） | GPT-4o / Qwen-VL | ~1-3s | 最高 | 特殊字体、低对比度 |
 
-两条通道汇成统一台词流，下游 AI 层不关心文本来自哪条。
+截图支持 PrintWindow（被遮挡也能抓）+ 回退 mss 屏幕截取。可在**截图上框选**台词区域，区域锚定游戏窗口客户区（窗口移动跟得住）。
 
-## 规划特性
+## 核心功能
 
-- 实时台词抓取（双通道，自动切换）
-- 自动整理结构化笔记：人物表、场景/章节、关键事件、伏笔、选项分支
-- 按游戏分库的本地记忆（Markdown，人可读可改）
-- 剧情感知的对话陪读（检索近期台词 + 笔记 + 人物表作上下文）
-- 与游戏并排显示的轻量界面（实时台词流 / 笔记视图 / 聊天框）
+- **实时台词抓取**：双通道自动切换，稳定性门控（等 2 帧不动 + 4 秒兜底防打字机黑墙），像素差跳过无效帧
+- **自动整理笔记**：LLM 根据新台词增量更新结构化 Markdown 笔记（人物档案 / 剧情节点 / 伏笔 / 选项分支），保留已有内容
+- **向量增强对话**：transcript 全量 embedding + 余弦检索，对话时自动注入相关历史台词上下文
+- **多游戏管理**：按 `data/{game_id}/` 独立分库，前端下拉切换，OCR 设置按游戏独立存储
+- **多模型配置**：整理 / 对话 / embedding / 视觉 OCR 四角色各自独立端点 + API Key + 模型，留空回退全局，支持拉取模型列表 + 测试连接
+- **说话人自动解析**：支持 `@name@「text」`、`【name】text`、`name「text」`、`name：text` 等六种格式
+- **编码修复**：Textractor codepage 不匹配时自动多对编码评估修复
+- **笔记编辑**：前端笔记面板支持随时编辑，取消即可还原
 
-## 状态
-
-设计阶段。完整设计见 [docs/design.md](docs/design.md)。
-
-## 技术栈（拟定）
-
-- Python 3.11 核心服务（常驻进程）
-- Textractor（已有工具）+ WebSocket 扩展
-- PaddleOCR（本地，中日文）
-- 云端 LLM（OpenAI 兼容接口：Proma Cloud / DeepSeek / Qwen / Gemini）
-- Tauri 或 Flask + 浏览器作为界面
-- 本地 Markdown 文件作为记忆库
-
-## 运行（v1 MVP）
-
-v1 用文件回放注入器模拟抓取，已跑通"台词入库 → AI 自动整理笔记 → 剧情对话"核心管线。
+## 快速开始
 
 ```bash
-# 1. 装依赖（项目专用 venv，别用系统 python）
+# 1. 创建 venv
 python -m venv .venv
-.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.venv\Scripts\python.exe -m pip install -e ".[ocr]"
 
-# 2. 配置 .env（从 .env.example 复制，填你的 LLM key；默认 DeepSeek 官方）
-copy .env.example .env
+# 2. 配置 .env
+copy .env.example .env   # 填 LLM_API_KEY（默认 DeepSeek）
 
 # 3. 启动服务
-.venv\Scripts\python.exe -m app.server
+.venv\Scripts\python.exe -m app.server   # → http://127.0.0.1:5000
 
-# 4. 浏览器打开 http://127.0.0.1:5000
-#    点"回放 sample_lines.txt"喂台词 → 攒够 N 条自动整理笔记 → 在聊天框问剧情
+# 或启动 Tauri 桌面窗口
+start-tauri.bat                           # → 原生窗口，无浏览器依赖
 ```
-
-记忆库落在 `data/<game_id>/`（`transcript.md` 原始台词、`notes.md` AI 笔记、`characters.md`、`meta.json`）。`data/` 和 `.env` 不入库。
-
-## 真实抓取（Textractor，v2）
-
-接上真实 galgame：装 [Textractor](https://github.com/Artikash/Textractor) + [textractor_websocket](https://github.com/kuroahna/textractor_websocket) 扩展，启动本应用后状态点变琥珀即连上。游戏里每出一句新台词，左栏实时出现对话卡，攒够 N 条自动整理成笔记。完整安装与选线程指引见 [docs/textractor-setup.md](docs/textractor-setup.md)。
-
-无 Textractor 时可用 mock 服务测：`.venv\Scripts\python.exe dev\mock_textractor.py samples\sample_lines.txt 0.5`（在 :6677 模仿 Textractor）。
 
 测试：`.venv\Scripts\python.exe -m pytest`
 
-设计文档见 [docs/design.md](docs/design.md)，实现计划见 [docs/plans/](docs/plans/)。
+## 技术栈
 
+- Python 3.11+（Flask + SocketIO）
+- [Textractor](https://github.com/Artikash/Textractor) + [textractor_websocket](https://github.com/kuroahna/textractor_websocket)（内存钩子）
+- RapidOCR PP-OCRv4（ONNX Runtime）+ Windows.Media.Ocr（winrt）+ AI 视觉大模型
+- 云端 LLM，OpenAI 兼容接口（DeepSeek / GPT / Qwen / Gemini）
+- 向量检索：纯 Python 余弦相似度（无外部依赖）
+- 前端：原生 HTML/CSS/JS（Flask 模板 + SocketIO），可选 Tauri 2.x 桌面窗口
+- 记忆：本地 Markdown（`data/{game_id}/transcript.md` / `notes.md` / `characters.md` / `meta.json`）
+
+## 记忆库结构
+
+```
+data/
+  default/             ← 游戏数据根（game_id）
+    transcript.md      ← 原始台词流
+    notes.md           ← AI 整理的结构化笔记（Markdown，可手动编辑）
+    characters.md      ← 人物表
+    meta.json          ← 游戏元数据 + OCR 区域等专属设置
+  settings.json        ← 全局设置（LLM 端点/Key/模型等）
+```
+
+## 致谢
+
+OCR 模型来自 [LunaTranslator](https://github.com/HIllya51/LunaTranslator)（PP-OCRv5 ONNX），后升级为 RapidOCR PP-OCRv4。OCR 稳定性门控策略、文本后处理管道、多 OCR 引擎设计参考自 Luna。
+
+## License
+
+MIT
