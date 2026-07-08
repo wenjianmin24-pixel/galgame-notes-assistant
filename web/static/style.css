@@ -80,6 +80,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;             /* 关键：允许 flex/grid 子元素收缩，否则内容会撑破容器 */
   border-right: 1px solid var(--border);
   padding: 18px 22px 16px;
 }
@@ -101,7 +102,12 @@ body {
 }
 
 /* ---- Stream (VN-style dialogue cards) ---- */
-.stream { flex: 1; overflow-y: auto; padding-right: 6px; }
+.stream {
+  flex: 1;
+  min-height: 0;            /* 关键：允许 flex:1 子元素收缩 */
+  overflow-y: auto;
+  padding-right: 6px;
+}
 
 .line {
   margin-bottom: 16px;
@@ -151,6 +157,7 @@ body {
 /* ---- Notes ---- */
 .notes {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 6px;
   font-family: var(--serif);
@@ -172,8 +179,82 @@ body {
 .notes li { margin: 3px 0; }
 .notes strong { color: var(--ink); font-weight: 700; }
 
+/* ---- 笔记富文本增强 ---- */
+/* 引用块：台词原文 / 重要对话 */
+.notes blockquote {
+  margin: 10px 0 12px;
+  padding: 8px 14px;
+  border-left: 3px solid var(--insight);
+  background: rgba(212, 168, 74, 0.06);
+  border-radius: 2px;
+  font-style: italic;
+  color: var(--ink-2);
+}
+.notes blockquote p { margin: 0; }
+.notes blockquote strong {
+  color: var(--accent);
+  font-style: normal;
+}
+
+/* 分割线 */
+.notes hr {
+  border: none;
+  border-top: 1px dashed var(--border);
+  margin: 20px 0;
+}
+
+/* 内联代码：专有名词 / 特殊术语 */
+.notes code {
+  font-family: var(--sans);
+  font-size: 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  color: var(--accent);
+}
+
+/* 删除线：过时信息 */
+.notes del {
+  color: var(--muted-2);
+  text-decoration: line-through;
+}
+
+/* 斜体 */
+.notes em {
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+/* 有序列表 */
+.notes ol {
+  margin: 5px 0 10px;
+  padding-left: 22px;
+}
+.notes ol li { margin: 3px 0; }
+
+/* 粗体高亮色 */
+.notes strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 引用块内的强调 */
+.notes blockquote em {
+  color: var(--insight);
+  font-style: italic;
+}
+
+/* ---- 人物表独立滚动（非 flex:1） ---- */
+#characters { flex: none; max-height: 200px; }
+
 /* ---- Chat ---- */
-.chat { flex: 1; overflow-y: auto; padding-right: 6px; }
+.chat {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
 .chat .msg { margin-bottom: 16px; animation: lineIn 320ms ease both; }
 .chat .msg .who {
   font-family: var(--sans);

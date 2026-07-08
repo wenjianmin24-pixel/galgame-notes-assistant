@@ -112,6 +112,8 @@ function parseSpeaker(text) {
     [/^「([^」]+)」\s*(.+)$/, (m) => [m[1], m[2]]],
     // 5. name「text」— 短名字 +「」包裹
     [/^([^\s「」@【】：:，,。\.！!？?、]{1,8})「(.+?)」\s*$/, (m) => [m[1], m[2]]],
+    // 5b. name「text（半截台词，RPG 打字机 / OCR 部分捕获，无闭合」）
+    [/^([^\s「」@【】：:，,。\.！!？?、]{1,8})「(.+)$/, (m) => [m[1], m[2]]],
     // 6. name：text / name: text
     [/^([^\s：:]{1,8})[：:]\s*(.+)$/, (m) => [m[1], m[2]]],
   ];
@@ -127,22 +129,104 @@ function parseSpeaker(text) {
   return { speaker: null, body: text };
 }
 
-// 极简 Markdown 渲染（## ### - **粗体**），不依赖 CDN
+// 极简 Markdown 渲染（行级解析，支持标题 / 粗斜体 / 引用块 / 分割线 / 代码 / 列表）
 function renderMd(md) {
-  let h = md.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  h = h.replace(/^### (.*)$/gm, "<h3>$1</h3>");
-  h = h.replace(/^## (.*)$/gm, "<h2>$1</h2>");
-  h = h.replace(/^# (.*)$/gm, "<h1>$1</h1>");
-  h = h.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  h = h.replace(/^- (.*)$/gm, "<li>$1</li>");
-  h = h.replace(/((?:<li>.*?<\/li>\n?)+)/g, "<ul>$1</ul>");
-  h = h.split(/\n{2,}/).map((block) => {
-    const t = block.trim();
-    if (!t) return "";
-    if (/^<(h\d|ul|li|p)/.test(t)) return block;
-    return `<p>${block.replace(/\n/g, "<br>")}</p>`;
-  }).join("");
-  return h;
+  if (!md || !md.trim()) return "";
+
+  const lines = md.split("\n");
+  const out = [];
+  let inBlockquote = false;
+  let inUl = false;
+  let inOl = false;
+
+  // 行级内联格式化
+  const fmt = (s) => s
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/~~(.+?)~~/g, "<del>$1</del>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const t = raw.trim();
+
+    // ── 空行：关闭所有打开块 ──
+    if (!t) {
+      if (inBlockquote) { out.push("</blockquote>"); inBlockquote = false; }
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      if (inOl) { out.push("</ol>"); inOl = false; }
+      continue;
+    }
+
+    // 先做 HTML 转义
+    let esc = t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    // ── 标题 ──
+    const h3 = t.match(/^### (.+)/);
+    const h2 = t.match(/^## (.+)/);
+    const h1 = t.match(/^# (.+)/);
+    if (h1 || h2 || h3) {
+      if (inBlockquote) { out.push("</blockquote>"); inBlockquote = false; }
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      if (inOl) { out.push("</ol>"); inOl = false; }
+      const tag = h1 ? "h1" : h2 ? "h2" : "h3";
+      const text = (h1 || h2 || h3)[1];
+      out.push(`<${tag}>${fmt(text)}</${tag}>`);
+      continue;
+    }
+
+    // ── 分割线 ──
+    if (/^-{3,}\s*$/.test(t)) {
+      if (inBlockquote) { out.push("</blockquote>"); inBlockquote = false; }
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      if (inOl) { out.push("</ol>"); inOl = false; }
+      out.push("<hr>");
+      continue;
+    }
+
+    // ── 引用块（> 开头）──
+    if (t.startsWith("&gt; ")) {
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      if (inOl) { out.push("</ol>"); inOl = false; }
+      const content = esc.slice(5); // 去掉 "&gt; "
+      if (!inBlockquote) { out.push("<blockquote>"); inBlockquote = true; }
+      out.push(`<p>${fmt(content)}</p>`);
+      continue;
+    }
+
+    // ── 无序列表 ──
+    if (/^[-*]\s/.test(t)) {
+      if (inBlockquote) { out.push("</blockquote>"); inBlockquote = false; }
+      if (inOl) { out.push("</ol>"); inOl = false; }
+      const content = esc.replace(/^[-*]\s+/, "");
+      if (!inUl) { out.push("<ul>"); inUl = true; }
+      out.push(`<li>${fmt(content)}</li>`);
+      continue;
+    }
+
+    // ── 有序列表 ──
+    if (/^\d+\.\s/.test(t)) {
+      if (inBlockquote) { out.push("</blockquote>"); inBlockquote = false; }
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      const content = esc.replace(/^\d+\.\s+/, "");
+      if (!inOl) { out.push("<ol>"); inOl = true; }
+      out.push(`<li>${fmt(content)}</li>`);
+      continue;
+    }
+
+    // ── 普通段落 ──
+    if (inBlockquote) { out.push("</blockquote>"); inBlockquote = false; }
+    if (inUl) { out.push("</ul>"); inUl = false; }
+    if (inOl) { out.push("</ol>"); inOl = false; }
+    out.push(`<p>${fmt(esc)}</p>`);
+  }
+
+  // 收尾：关闭所有未闭合块
+  if (inBlockquote) out.push("</blockquote>");
+  if (inUl) out.push("</ul>");
+  if (inOl) out.push("</ol>");
+
+  return out.join("\n");
 }
 
 const charsEl = document.getElementById("characters");
